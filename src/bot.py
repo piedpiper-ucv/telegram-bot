@@ -6,6 +6,9 @@ from config.auth import token
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup,Sticker,File
 import inbox
 import send
+import sendattch
+import urllib.request
+
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger('PiedPiperUCV')
 
@@ -21,6 +24,8 @@ class emailData:
         To =  ''
         Subject = ''
         Body = ''
+        file_name = ''
+        file_url = ''
         
 
 class validations:
@@ -181,10 +186,12 @@ def Verification(bot, update):
                                 )
                         elif validate.sendImail[0] and validate.sendImail[1] and validate.sendImail[2] and validate.sendImail[3] and not validate.sendImail[4]:
                                 data.Body = update.message.text
-                                keyboard = [[InlineKeyboardButton("Send", callback_data='6'),InlineKeyboardButton("Main menu", callback_data='0')]]
+                                keyboard = [[InlineKeyboardButton("YES", callback_data='9'),InlineKeyboardButton("NO", callback_data='10')]]
                                 reply_markup = InlineKeyboardMarkup(keyboard)
-                                bot.send_message(chat_id=update.message.chat_id, text= 'Select an option:',
+                                bot.send_message(chat_id=update.message.chat_id, text= 'Are you want to send a any file ?',
                                         reply_markup=reply_markup)
+
+                        
 
 
                 
@@ -279,8 +286,11 @@ def button(bot, update):
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 bot.deleteMessage(chat_id=query.message.chat_id, message_id=query.message.message_id)  
                 bot.send_message(chat_id=query.message.chat_id,text='Sending email, please wait....')
-
-                result = send.Send(credentials.email,credentials.password,data.From,data.To,data.Subject,data.Body)
+                result = ''
+                if data.file_url == '' and data.file_name == '':
+                        result = send.Send(credentials.email,credentials.password,data.From,data.To,data.Subject,data.Body)
+                else:
+                        result = sendattch.Send(credentials.email,credentials.password,data.From,data.To,data.Subject,data.Body,data.file_url,data.file_name)
 
                 if result == 'ok':
                         data.Body = ''
@@ -325,16 +335,37 @@ def button(bot, update):
                 bot.send_sticker(chat_id=query.message.chat_id, sticker= newsticker)
                 bot.send_message(chat_id=query.message.chat_id,text='Bye!',reply_markup=reply_markup)
                 bot.deleteMessage(chat_id=query.message.chat_id, message_id=query.message.message_id)
+        elif query.data == '9':
+                validate.sendImail[4] = True
+                bot.deleteMessage(chat_id=query.message.chat_id, message_id=query.message.message_id)
+                bot.send_message(chat_id=query.message.chat_id,text='Add your file') 
+        elif query.data == '10':
+                bot.deleteMessage(chat_id=query.message.chat_id, message_id=query.message.message_id)
+                keyboard = [[InlineKeyboardButton("Send", callback_data='6'),InlineKeyboardButton("Main menu", callback_data='0')]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                bot.send_message(chat_id=query.message.chat_id, text= 'Select an option:',
+                                        reply_markup=reply_markup)
     
-def stick(bot,update):
-        logger.info(update)            
-        
+def SendFile(bot,update):
+        if validate.sendImail[4]:
+                data.file_name = update.message.document.file_name   
+                file = bot.getFile(update.message.document.file_id)   
+                data.file_url = file.file_path
+                keyboard = [[InlineKeyboardButton("Send", callback_data='6'),InlineKeyboardButton("Main menu", callback_data='0')]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                bot.send_message(chat_id=update.message.chat_id, text= 'Select an option:',
+                                        reply_markup=reply_markup)
+                #print(file.file_path)      
+                #print(name)   
+                #sendattch.send(file.file_path,name) 
+            
 
+        
 if __name__ == '__main__':
         
         dispatcher.add_handler(CommandHandler('start', start))
         dispatcher.add_handler(MessageHandler(Filters.text, Verification))
-        #dispatcher.add_handler(MessageHandler(Filters.sticker, stick))
+        dispatcher.add_handler(MessageHandler(Filters.document, SendFile))
         dispatcher.add_handler(CallbackQueryHandler(button))
         updater.start_polling() 
         updater.idle()
